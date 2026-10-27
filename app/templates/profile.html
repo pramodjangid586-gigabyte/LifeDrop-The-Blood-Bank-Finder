@@ -1,0 +1,136 @@
+{% extends "base.html" %}
+
+{% block title %}Account Profile | BloodConnect{% endblock %}
+
+{% block content %}
+<div class="max-w-3xl mx-auto px-4 sm:px-6 lg:px-8 py-10 space-y-6">
+
+    <div class="bg-white rounded-2xl border border-slate-200 shadow-sm p-6 sm:p-8 space-y-6">
+        <div class="flex items-center justify-between pb-4 border-b border-slate-100">
+            <div>
+                <h1 class="text-2xl font-extrabold text-slate-900 tracking-tight">Account Profile</h1>
+                <p class="text-xs text-slate-500">Manage your profile credentials and coordination preferences.</p>
+            </div>
+            <span class="px-3 py-1 rounded-full text-xs font-bold uppercase 
+                {% if current_user.role == 'ADMIN' %}bg-purple-100 text-purple-700
+                {% elif current_user.role == 'BLOOD_BANK_STAFF' %}bg-blue-100 text-blue-700
+                {% elif current_user.role == 'DONOR' %}bg-emerald-100 text-emerald-700
+                {% else %}bg-slate-100 text-slate-700{% endif %}">
+                {{ current_user.role.replace('_', ' ') }}
+            </span>
+        </div>
+
+        <div class="grid grid-cols-1 sm:grid-cols-2 gap-4 text-sm">
+            <div class="p-3.5 bg-slate-50 rounded-xl border border-slate-100">
+                <span class="block text-xs uppercase font-bold text-slate-400">Full Name</span>
+                <span class="font-bold text-slate-800 text-base">{{ current_user.full_name }}</span>
+            </div>
+            <div class="p-3.5 bg-slate-50 rounded-xl border border-slate-100">
+                <span class="block text-xs uppercase font-bold text-slate-400">Email Address</span>
+                <span class="font-bold text-slate-800 text-base">{{ current_user.email }}</span>
+            </div>
+            <div class="p-3.5 bg-slate-50 rounded-xl border border-slate-100">
+                <span class="block text-xs uppercase font-bold text-slate-400">Phone Contact</span>
+                <span class="font-medium text-slate-700">{{ current_user.phone or 'Not provided' }}</span>
+            </div>
+            <div class="p-3.5 bg-slate-50 rounded-xl border border-slate-100">
+                <span class="block text-xs uppercase font-bold text-slate-400">Account Created</span>
+                <span class="font-medium text-slate-700">{{ current_user.created_at[:10] }}</span>
+            </div>
+        </div>
+
+        {% if donor_profile %}
+        <!-- Donor Specific Section -->
+        <div class="pt-4 border-t border-slate-100 space-y-4">
+            <div class="flex items-center justify-between">
+                <h3 class="font-extrabold text-base text-slate-900 flex items-center gap-2">
+                    <span>🩸</span> Donor Profile Details
+                </h3>
+                <span class="px-2.5 py-0.5 rounded-full text-xs font-bold uppercase bg-emerald-100 text-emerald-800 border border-emerald-300">
+                    {{ donor_profile.verification_status }}
+                </span>
+            </div>
+
+            <div class="grid grid-cols-2 sm:grid-cols-4 gap-3 text-center">
+                <div class="p-3 bg-red-50 rounded-xl border border-red-200">
+                    <span class="block text-[10px] uppercase font-bold text-red-500">Blood Group</span>
+                    <span class="text-2xl font-black text-red-700">{{ donor_profile.blood_group }}</span>
+                </div>
+                <div class="p-3 bg-slate-50 rounded-xl border border-slate-200">
+                    <span class="block text-[10px] uppercase font-bold text-slate-400">Location Area</span>
+                    <span class="text-xs font-bold text-slate-800 block mt-1">{{ donor_profile.area_name or donor_profile.city }}</span>
+                </div>
+                <div class="p-3 bg-slate-50 rounded-xl border border-slate-200">
+                    <span class="block text-[10px] uppercase font-bold text-slate-400">Total Donations</span>
+                    <span class="text-xl font-black text-slate-800">{{ donor_profile.total_donations or 0 }}</span>
+                </div>
+                <div class="p-3 bg-slate-50 rounded-xl border border-slate-200">
+                    <span class="block text-[10px] uppercase font-bold text-slate-400">Preferred Channel</span>
+                    <span class="text-xs font-bold text-slate-800 block mt-1">{{ donor_profile.preferred_contact }}</span>
+                </div>
+            </div>
+
+            <!-- Availability Toggle -->
+            <div class="bg-slate-50 p-4 rounded-xl border border-slate-200 flex items-center justify-between">
+                <div>
+                    <h4 class="font-bold text-xs text-slate-800 uppercase">Emergency Availability Status</h4>
+                    <p class="text-xs text-slate-500">When available, you receive emergency push alerts for nearby matching patients.</p>
+                </div>
+                <button onclick="toggleAvailabilityOnProfile({{ 'false' if donor_profile.is_available else 'true' }})" 
+                        class="px-4 py-2 rounded-xl text-xs font-bold transition shadow-sm
+                        {% if donor_profile.is_available %}bg-emerald-600 hover:bg-emerald-700 text-white{% else %}bg-slate-300 hover:bg-slate-400 text-slate-800{% endif %}">
+                    {% if donor_profile.is_available %}AVAILABLE (Click to pause){% else %}NOT AVAILABLE (Click to activate){% endif %}
+                </button>
+            </div>
+        </div>
+        {% endif %}
+
+        {% if assigned_blood_bank %}
+        <!-- Blood Bank Staff Specific Section -->
+        <div class="pt-4 border-t border-slate-100 space-y-3">
+            <h3 class="font-extrabold text-base text-slate-900 flex items-center gap-2">
+                <span>🏥</span> Assigned Blood Bank Facility
+            </h3>
+            <div class="p-4 bg-blue-50 rounded-xl border border-blue-200 space-y-1 text-xs text-blue-900">
+                <h4 class="font-bold text-sm text-blue-950">{{ assigned_blood_bank.name }}</h4>
+                <p>License: <strong>{{ assigned_blood_bank.license_number }}</strong></p>
+                <p>Address: {{ assigned_blood_bank.address }}, {{ assigned_blood_bank.city }}</p>
+                <p>Phone: {{ assigned_blood_bank.phone }} | Operating Hours: {{ assigned_blood_bank.operating_hours }}</p>
+            </div>
+        </div>
+        {% endif %}
+
+        <div class="pt-4 border-t border-slate-100 flex items-center justify-between">
+            <button onclick="handleLogout()" class="px-4 py-2 bg-rose-50 hover:bg-rose-100 text-rose-700 rounded-xl text-xs font-bold border border-rose-200 transition">
+                Sign Out
+            </button>
+            <a href="/" class="text-xs font-bold text-slate-600 hover:text-slate-900">&larr; Return to Home</a>
+        </div>
+    </div>
+
+    <!-- Mandatory Safety Component -->
+    {% include "components/disclaimers.html" %}
+
+</div>
+
+<script>
+async function toggleAvailabilityOnProfile(newStatus) {
+    try {
+        const res = await fetch('/api/donors/availability', {
+            method: 'PUT',
+            headers: { 'Content-Type': 'application/json' },
+            body: JSON.stringify({ is_available: newStatus })
+        });
+        const data = await res.json();
+        if (res.ok) {
+            showToast(data.message, "success");
+            setTimeout(() => window.location.reload(), 800);
+        } else {
+            showToast(data.detail || "Error updating availability", "error");
+        }
+    } catch(e) {
+        showToast("Network error: " + e.message, "error");
+    }
+}
+</script>
+{% endblock %}

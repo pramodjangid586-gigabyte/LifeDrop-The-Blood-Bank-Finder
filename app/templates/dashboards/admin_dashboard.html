@@ -1,0 +1,287 @@
+{% extends "base.html" %}
+
+{% block title %}Administrator System Control | BloodConnect{% endblock %}
+
+{% block content %}
+<div class="max-w-7xl mx-auto px-4 sm:px-6 lg:px-8 py-8 space-y-8">
+
+    <!-- Admin Overview Header -->
+    <div class="bg-white rounded-2xl p-6 border border-slate-200 shadow-sm flex flex-wrap items-center justify-between gap-4">
+        <div>
+            <div class="flex items-center gap-2 mb-1">
+                <span class="px-2.5 py-0.5 rounded-full text-xs font-extrabold bg-purple-100 text-purple-800">
+                    👑 ADMINISTRATOR ROOT PANEL
+                </span>
+                <span class="text-xs text-slate-400">&bull; System Authority</span>
+            </div>
+            <h1 class="text-2xl font-extrabold text-slate-900 tracking-tight">System Oversight & Ingestion Governance</h1>
+            <p class="text-xs text-slate-500 mt-0.5">Manage data feeds, facility verification status, donor audits, and security.</p>
+        </div>
+
+        <div class="flex items-center gap-3">
+            <span class="px-3 py-1.5 rounded-xl bg-slate-100 text-slate-700 font-mono text-xs font-bold flex items-center gap-2">
+                <span class="w-2 h-2 rounded-full bg-emerald-500 animate-pulse"></span>
+                Audit Integrity: Enforced
+            </span>
+        </div>
+    </div>
+
+    <!-- KPI Metric Cards -->
+    <div class="grid grid-cols-2 sm:grid-cols-3 lg:grid-cols-6 gap-4">
+        <div class="bg-white p-4 rounded-2xl border border-slate-200 shadow-2xs">
+            <span class="block text-[11px] font-bold uppercase text-slate-400">Blood Banks</span>
+            <span class="text-2xl font-black text-slate-900 mt-1 block">{{ stats.total_blood_banks }}</span>
+        </div>
+        <div class="bg-white p-4 rounded-2xl border border-slate-200 shadow-2xs">
+            <span class="block text-[11px] font-bold uppercase text-slate-400">Total Donors</span>
+            <span class="text-2xl font-black text-slate-900 mt-1 block">{{ stats.total_donors }}</span>
+        </div>
+        <div class="bg-white p-4 rounded-2xl border border-slate-200 shadow-2xs">
+            <span class="block text-[11px] font-bold uppercase text-slate-400">Available Donors</span>
+            <span class="text-2xl font-black text-emerald-600 mt-1 block">{{ stats.available_donors }}</span>
+        </div>
+        <div class="bg-white p-4 rounded-2xl border border-slate-200 shadow-2xs">
+            <span class="block text-[11px] font-bold uppercase text-slate-400">Stock Units</span>
+            <span class="text-2xl font-black text-red-600 mt-1 block">{{ stats.total_units_in_stock }}</span>
+        </div>
+        <div class="bg-white p-4 rounded-2xl border border-slate-200 shadow-2xs">
+            <span class="block text-[11px] font-bold uppercase text-slate-400">Open Requests</span>
+            <span class="text-2xl font-black text-amber-600 mt-1 block">{{ stats.open_emergency_requests }}</span>
+        </div>
+        <div class="bg-white p-4 rounded-2xl border border-slate-200 shadow-2xs">
+            <span class="block text-[11px] font-bold uppercase text-slate-400">Pending Verify</span>
+            <span class="text-2xl font-black text-purple-600 mt-1 block">{{ stats.pending_verifications }}</span>
+        </div>
+    </div>
+
+    <!-- Blood Banks Verification Management Section -->
+    <div class="bg-white rounded-2xl border border-slate-200 shadow-sm p-6 space-y-4">
+        <div class="flex items-center justify-between pb-3 border-b border-slate-100">
+            <div>
+                <h3 class="font-extrabold text-lg text-slate-900 flex items-center gap-2">
+                    <span>🏥</span> Blood Bank Facilities & Verification Status
+                </h3>
+                <p class="text-xs text-slate-500">Unverified facilities will never display false verification badges.</p>
+            </div>
+        </div>
+
+        <div class="overflow-x-auto">
+            <table class="w-full text-left text-xs">
+                <thead>
+                    <tr class="bg-slate-50 text-slate-500 uppercase font-bold border-b">
+                        <th class="p-3">Facility Name</th>
+                        <th class="p-3">License Number</th>
+                        <th class="p-3">City / Area</th>
+                        <th class="p-3">Units in Stock</th>
+                        <th class="p-3">Ingestion Source</th>
+                        <th class="p-3">Verification State</th>
+                        <th class="p-3">Action</th>
+                    </tr>
+                </thead>
+                <tbody class="divide-y divide-slate-100 font-medium">
+                    {% for b in blood_banks %}
+                    <tr class="hover:bg-slate-50">
+                        <td class="p-3 font-bold text-slate-900 text-sm">{{ b.name }}</td>
+                        <td class="p-3 font-mono text-slate-600">{{ b.license_number }}</td>
+                        <td class="p-3 text-slate-600">{{ b.city }} ({{ b.district }})</td>
+                        <td class="p-3 font-bold text-red-600">{{ b.total_units or 0 }} units</td>
+                        <td class="p-3 text-slate-500">{{ b.data_source_name or 'Unlinked' }}</td>
+                        <td class="p-3">
+                            <span class="px-2.5 py-1 rounded-full font-bold uppercase text-[10px] border
+                                {% if b.verification_status == 'VERIFIED' %}bg-emerald-50 text-emerald-800 border-emerald-300
+                                {% elif b.verification_status == 'UNVERIFIED' %}bg-slate-100 text-slate-600 border-slate-200
+                                {% else %}bg-purple-100 text-purple-800 border-purple-300{% endif %}">
+                                {{ b.verification_status }}
+                            </span>
+                        </td>
+                        <td class="p-3">
+                            <select onchange="updateBankVerification({{ b.id }}, this.value)" class="p-1.5 border border-slate-300 rounded-lg text-xs font-semibold bg-white">
+                                <option value="VERIFIED" {% if b.verification_status == 'VERIFIED' %}selected{% endif %}>Set VERIFIED</option>
+                                <option value="VERIFICATION REQUIRED" {% if b.verification_status == 'VERIFICATION REQUIRED' %}selected{% endif %}>Set VERIFY REQ</option>
+                                <option value="UNVERIFIED" {% if b.verification_status == 'UNVERIFIED' %}selected{% endif %}>Set UNVERIFIED</option>
+                            </select>
+                        </td>
+                    </tr>
+                    {% endfor %}
+                </tbody>
+            </table>
+        </div>
+    </div>
+
+    <!-- Donors Verification Management Section -->
+    <div class="bg-white rounded-2xl border border-slate-200 shadow-sm p-6 space-y-4">
+        <div class="flex items-center justify-between pb-3 border-b border-slate-100">
+            <div>
+                <h3 class="font-extrabold text-lg text-slate-900 flex items-center gap-2">
+                    <span>🩸</span> Registered Donors & Verification Status
+                </h3>
+                <p class="text-xs text-slate-500">Audited volunteer donor registry with privacy compliance.</p>
+            </div>
+        </div>
+
+        <div class="overflow-x-auto">
+            <table class="w-full text-left text-xs">
+                <thead>
+                    <tr class="bg-slate-50 text-slate-500 uppercase font-bold border-b">
+                        <th class="p-3">Donor Name</th>
+                        <th class="p-3">Blood Group</th>
+                        <th class="p-3">Area / City</th>
+                        <th class="p-3">Status</th>
+                        <th class="p-3">Donations</th>
+                        <th class="p-3">Verification</th>
+                        <th class="p-3">Action</th>
+                    </tr>
+                </thead>
+                <tbody class="divide-y divide-slate-100 font-medium">
+                    {% for d in donors %}
+                    <tr class="hover:bg-slate-50">
+                        <td class="p-3 font-bold text-slate-900">{{ d.full_name }}</td>
+                        <td class="p-3 font-black text-red-600 text-sm">{{ d.blood_group }}</td>
+                        <td class="p-3 text-slate-600">{{ d.area_name or d.city }}</td>
+                        <td class="p-3">
+                            <span class="px-2 py-0.5 rounded text-[10px] font-bold {{ 'bg-emerald-100 text-emerald-800' if d.is_available else 'bg-slate-100 text-slate-500' }}">
+                                {{ 'AVAILABLE' if d.is_available else 'PAUSED' }}
+                            </span>
+                        </td>
+                        <td class="p-3 font-bold">{{ d.total_donations or 0 }}</td>
+                        <td class="p-3">
+                            <span class="px-2 py-0.5 rounded text-[10px] font-bold uppercase
+                                {% if d.verification_status == 'VERIFIED' %}bg-emerald-100 text-emerald-800
+                                {% else %}bg-purple-100 text-purple-800{% endif %}">
+                                {{ d.verification_status }}
+                            </span>
+                        </td>
+                        <td class="p-3">
+                            <select onchange="updateDonorVerification({{ d.id }}, this.value)" class="p-1.5 border border-slate-300 rounded-lg text-xs font-semibold bg-white">
+                                <option value="VERIFIED" {% if d.verification_status == 'VERIFIED' %}selected{% endif %}>VERIFIED</option>
+                                <option value="VERIFICATION REQUIRED" {% if d.verification_status == 'VERIFICATION REQUIRED' %}selected{% endif %}>VERIFY REQ</option>
+                                <option value="UNVERIFIED" {% if d.verification_status == 'UNVERIFIED' %}selected{% endif %}>UNVERIFIED</option>
+                            </select>
+                        </td>
+                    </tr>
+                    {% endfor %}
+                </tbody>
+            </table>
+        </div>
+    </div>
+
+    <!-- Authorized Data Sources Management Section -->
+    <div class="bg-white rounded-2xl border border-slate-200 shadow-sm p-6 space-y-4">
+        <div class="flex flex-wrap items-center justify-between gap-3 pb-3 border-b border-slate-100">
+            <div>
+                <h3 class="font-extrabold text-lg text-slate-900 flex items-center gap-2">
+                    <span>🔌</span> Authorized Ingestion Data Sources
+                </h3>
+                <p class="text-xs text-slate-500">Official hospital LIMS and regional blood portal feeds.</p>
+            </div>
+        </div>
+
+        <div class="grid grid-cols-1 md:grid-cols-2 lg:grid-cols-3 gap-4">
+            {% for ds in data_sources %}
+            <div class="p-4 bg-slate-50 rounded-xl border border-slate-200 space-y-2">
+                <div class="flex items-center justify-between">
+                    <span class="px-2 py-0.5 rounded text-[10px] font-extrabold 
+                        {% if ds.trust_level == 'OFFICIAL' %}bg-emerald-100 text-emerald-800
+                        {% elif ds.trust_level == 'VERIFIED_PARTNER' %}bg-blue-100 text-blue-800
+                        {% else %}bg-purple-100 text-purple-800{% endif %}">
+                        {{ ds.trust_level }}
+                    </span>
+                    <span class="w-2 h-2 rounded-full bg-emerald-500"></span>
+                </div>
+                <h4 class="font-bold text-sm text-slate-900">{{ ds.name }}</h4>
+                <p class="text-[11px] text-slate-500">Type: <strong class="text-slate-700">{{ ds.source_type }}</strong></p>
+                <p class="text-[10px] text-slate-400 font-mono">Heartbeat: {{ ds.last_heartbeat_at }}</p>
+            </div>
+            {% endfor %}
+        </div>
+    </div>
+
+    <!-- Live Event Audit Log Table -->
+    <div class="bg-white rounded-2xl border border-slate-200 shadow-sm p-6 space-y-4">
+        <div class="flex items-center justify-between pb-3 border-b border-slate-100">
+            <div>
+                <h3 class="font-extrabold text-lg text-slate-900 flex items-center gap-2">
+                    <span>📜</span> System Ingestion Audit Log
+                </h3>
+                <p class="text-xs text-slate-500">Immutable ledger of all incoming updates and stock adjustments.</p>
+            </div>
+            <span class="text-xs font-mono text-emerald-600 font-bold flex items-center gap-1">
+                <span class="w-2 h-2 rounded-full bg-emerald-500 animate-ping"></span> Live Real-Time Feed
+            </span>
+        </div>
+
+        <div class="overflow-x-auto max-h-96">
+            <table class="w-full text-left text-xs">
+                <thead>
+                    <tr class="bg-slate-50 text-slate-500 uppercase font-bold border-b">
+                        <th class="p-3">Event ID</th>
+                        <th class="p-3">Blood Bank</th>
+                        <th class="p-3">Blood Group</th>
+                        <th class="p-3">Change</th>
+                        <th class="p-3">Stock Units</th>
+                        <th class="p-3">Data Source</th>
+                        <th class="p-3">Timestamp</th>
+                    </tr>
+                </thead>
+                <tbody id="admin-audit-tbody" class="divide-y divide-slate-100 font-medium">
+                    {% for ev in audit_logs %}
+                    <tr class="hover:bg-slate-50">
+                        <td class="p-3 font-mono text-slate-500">{{ ev.event_id }}</td>
+                        <td class="p-3 font-semibold text-slate-800">{{ ev.blood_bank_name }}</td>
+                        <td class="p-3 font-bold text-red-600">{{ ev.blood_group }} ({{ ev.component }})</td>
+                        <td class="p-3 font-mono font-bold {{ 'text-emerald-600' if ev.quantity_change > 0 else 'text-rose-600' }}">
+                            {{ '+' if ev.quantity_change > 0 else '' }}{{ ev.quantity_change }}
+                        </td>
+                        <td class="p-3 font-semibold">{{ ev.resulting_units }}</td>
+                        <td class="p-3 text-slate-600">{{ ev.source_name }}</td>
+                        <td class="p-3 text-slate-400 font-mono">{{ ev.recorded_at }}</td>
+                    </tr>
+                    {% endfor %}
+                </tbody>
+            </table>
+        </div>
+    </div>
+
+    <!-- Mandatory Safety Component -->
+    {% include "components/disclaimers.html" %}
+
+</div>
+
+<script>
+async function updateBankVerification(bankId, newStatus) {
+    try {
+        const res = await fetch(`/api/admin/blood-banks/${bankId}/verification`, {
+            method: 'PUT',
+            headers: { 'Content-Type': 'application/json' },
+            body: JSON.stringify({ status: newStatus })
+        });
+        const data = await res.json();
+        if (res.ok) {
+            showToast(data.message, "success");
+        } else {
+            showToast(data.detail || "Error", "error");
+        }
+    } catch(err) {
+        showToast("Error updating status: " + err.message, "error");
+    }
+}
+
+async function updateDonorVerification(donorId, newStatus) {
+    try {
+        const res = await fetch(`/api/admin/donors/${donorId}/verification`, {
+            method: 'PUT',
+            headers: { 'Content-Type': 'application/json' },
+            body: JSON.stringify({ status: newStatus })
+        });
+        const data = await res.json();
+        if (res.ok) {
+            showToast(data.message, "success");
+        } else {
+            showToast(data.detail || "Error", "error");
+        }
+    } catch(err) {
+        showToast("Error updating status: " + err.message, "error");
+    }
+}
+</script>
+{% endblock %}

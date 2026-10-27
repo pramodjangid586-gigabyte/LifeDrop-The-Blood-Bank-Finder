@@ -1,0 +1,329 @@
+{% extends "base.html" %}
+
+{% block title %}Find Donors – Compatible Volunteer Donor Search | BloodConnect{% endblock %}
+
+{% block content %}
+<div class="max-w-7xl mx-auto px-4 sm:px-6 lg:px-8 py-8 space-y-6">
+
+    <!-- Header & Filter Form -->
+    <div class="bg-white rounded-2xl p-6 border border-slate-200 shadow-sm">
+        <div class="flex flex-wrap items-center justify-between gap-4 mb-6 pb-4 border-b border-slate-100">
+            <div>
+                <h1 class="text-2xl font-extrabold text-slate-900 tracking-tight flex items-center gap-2">
+                    <span>👥</span> Search Registered Volunteer Donors
+                </h1>
+                <p class="text-xs text-slate-500 mt-1">
+                    Privacy-sanitized donor directory. Filter by blood group compatibility and distance radius.
+                </p>
+            </div>
+            <div class="px-3 py-1.5 rounded-full bg-emerald-50 text-emerald-700 text-xs font-bold border border-emerald-200">
+                🔒 Privacy Protection Active
+            </div>
+        </div>
+
+        <form id="donor-search-form" class="grid grid-cols-1 sm:grid-cols-2 lg:grid-cols-5 gap-4">
+            <!-- Blood Group -->
+            <div>
+                <label class="block text-xs font-bold uppercase text-slate-700 mb-1">Patient Blood Group</label>
+                <select id="donor-filter-group" name="blood_group" class="w-full p-2.5 bg-slate-50 border border-slate-300 rounded-xl text-sm font-bold text-slate-900 focus:ring-2 focus:ring-red-500">
+                    <option value="O+" selected>O+</option>
+                    <option value="O-">O-</option>
+                    <option value="A+">A+</option>
+                    <option value="A-">A-</option>
+                    <option value="B+">B+</option>
+                    <option value="B-">B-</option>
+                    <option value="AB+">AB+</option>
+                    <option value="AB-">AB-</option>
+                </select>
+            </div>
+
+            <!-- Component -->
+            <div>
+                <label class="block text-xs font-bold uppercase text-slate-700 mb-1">Component Needed</label>
+                <select id="donor-filter-component" name="component" class="w-full p-2.5 bg-slate-50 border border-slate-300 rounded-xl text-sm font-semibold text-slate-900 focus:ring-2 focus:ring-red-500">
+                    <option value="RBC" selected>Red Blood Cells (RBC)</option>
+                    <option value="WHOLE_BLOOD">Whole Blood</option>
+                    <option value="PLATELETS">Platelets</option>
+                    <option value="PLASMA">Plasma</option>
+                </select>
+            </div>
+
+            <!-- Location -->
+            <div>
+                <div class="flex items-center justify-between mb-1">
+                    <label class="block text-xs font-bold uppercase text-slate-700">Area / City</label>
+                    <button type="button" onclick="useCurrentDonorLocation()" class="text-[10px] font-bold text-red-600 hover:text-red-700">🎯 GPS</button>
+                </div>
+                <input type="text" id="donor-filter-location" name="location" placeholder="e.g. Pune, Delhi, Kothrud, Saket" value="Delhi"
+                       class="w-full p-2.5 bg-slate-50 border border-slate-300 rounded-xl text-sm font-medium text-slate-900 focus:ring-2 focus:ring-red-500">
+                <input type="hidden" id="donor-filter-lat" name="lat" value="">
+                <input type="hidden" id="donor-filter-lng" name="lng" value="">
+            </div>
+
+            <!-- Radius -->
+            <div>
+                <label class="block text-xs font-bold uppercase text-slate-700 mb-1">Search Radius</label>
+                <select id="donor-filter-radius" name="radius" class="w-full p-2.5 bg-slate-50 border border-slate-300 rounded-xl text-sm font-semibold text-slate-900 focus:ring-2 focus:ring-red-500">
+                    <option value="10">Within 10 km</option>
+                    <option value="25" selected>Within 25 km</option>
+                    <option value="50">Within 50 km</option>
+                </select>
+            </div>
+
+            <!-- Submit -->
+            <div class="flex flex-col justify-end">
+                <button type="button" onclick="performDonorSearch()" class="w-full p-2.5 bg-red-600 hover:bg-red-700 text-white font-bold rounded-xl shadow-md transition flex items-center justify-center gap-2 text-sm">
+                    <svg class="w-4 h-4 fill-current" viewBox="0 0 24 24"><path d="M15.5 14h-.79l-.28-.27A6.471 6.471 0 0 0 16 9.5 6.5 6.5 0 1 0 9.5 16c1.61 0 3.09-.59 4.23-1.57l.27.28v.79l5 4.99L20.49 19l-4.99-5zm-6 0C7.01 14 5 11.99 5 9.5S7.01 5 9.5 5 14 7.01 14 9.5 11.99 14 9.5 14z"/></svg>
+                    <span>Search Donors</span>
+                </button>
+            </div>
+        </form>
+    </div>
+
+    <!-- Medical Notice Banner -->
+    <div class="bg-amber-50 border-l-4 border-amber-500 p-4 rounded-r-xl shadow-2xs text-xs text-amber-900 leading-relaxed">
+        <strong>Medical Notice:</strong> <em>"Eligibility must be confirmed according to applicable blood-donation guidelines."</em> Pre-donation health evaluation by a licensed physician/hospital is required before any collection takes place.
+    </div>
+
+    <!-- Results Header -->
+    <div class="flex items-center justify-between text-xs text-slate-500 px-1">
+        <span id="donors-count-text">Searching for compatible donors...</span>
+        <span class="text-slate-400">Exact home coordinates protected</span>
+    </div>
+
+    <!-- Donors Grid -->
+    <div id="donors-container" class="grid grid-cols-1 md:grid-cols-2 lg:grid-cols-3 gap-5">
+        <!-- Dynamically injected via performDonorSearch() -->
+    </div>
+
+    <!-- Mandatory Safety Component -->
+    {% include "components/disclaimers.html" %}
+
+</div>
+
+<!-- REQUEST HELP MODAL -->
+<div id="request-help-modal" class="fixed inset-0 bg-slate-900/60 backdrop-blur-sm z-50 hidden flex items-center justify-center p-4">
+    <div class="bg-white rounded-2xl shadow-2xl border border-slate-200 max-w-lg w-full p-6 space-y-4">
+        <div class="flex items-center justify-between pb-3 border-b border-slate-100">
+            <div>
+                <h3 class="font-extrabold text-slate-900 text-lg flex items-center gap-2">
+                    <span>🚨</span> Request Emergency Help
+                </h3>
+                <p class="text-xs text-slate-500">Direct alert to donor <strong id="modal-donor-name" class="text-slate-800"></strong></p>
+            </div>
+            <button onclick="closeRequestHelpModal()" class="text-slate-400 hover:text-slate-700 text-2xl font-bold">&times;</button>
+        </div>
+
+        <form id="help-request-form" onsubmit="submitHelpRequest(event)" class="space-y-3 text-left">
+            <input type="hidden" id="modal-donor-id">
+            <input type="hidden" id="modal-donor-group">
+
+            <div>
+                <label class="block text-xs font-bold uppercase text-slate-700 mb-1">Patient Name</label>
+                <input type="text" id="modal-patient-name" required placeholder="Patient full name"
+                       class="w-full p-2.5 bg-slate-50 border border-slate-300 rounded-lg text-sm">
+            </div>
+
+            <div class="grid grid-cols-2 gap-3">
+                <div>
+                    <label class="block text-xs font-bold uppercase text-slate-700 mb-1">Hospital Name</label>
+                    <input type="text" id="modal-hospital-name" required placeholder="e.g. AIIMS Trauma Center"
+                           class="w-full p-2.5 bg-slate-50 border border-slate-300 rounded-lg text-sm">
+                </div>
+                <div>
+                    <label class="block text-xs font-bold uppercase text-slate-700 mb-1">Hospital City</label>
+                    <input type="text" id="modal-hospital-city" required value="New Delhi"
+                           class="w-full p-2.5 bg-slate-50 border border-slate-300 rounded-lg text-sm">
+                </div>
+            </div>
+
+            <div class="grid grid-cols-2 gap-3">
+                <div>
+                    <label class="block text-xs font-bold uppercase text-slate-700 mb-1">Units Required</label>
+                    <input type="number" id="modal-units" min="1" max="10" value="1" required
+                           class="w-full p-2.5 bg-slate-50 border border-slate-300 rounded-lg text-sm">
+                </div>
+                <div>
+                    <label class="block text-xs font-bold uppercase text-slate-700 mb-1">Urgency Level</label>
+                    <select id="modal-urgency" class="w-full p-2.5 bg-slate-50 border border-slate-300 rounded-lg text-sm font-bold text-red-600">
+                        <option value="CRITICAL_1HR">CRITICAL (Within 1 Hour)</option>
+                        <option value="URGENT_6HR">URGENT (Within 6 Hours)</option>
+                        <option value="STANDARD_24HR">STANDARD (Within 24 Hours)</option>
+                    </select>
+                </div>
+            </div>
+
+            <div>
+                <label class="block text-xs font-bold uppercase text-slate-700 mb-1">Contact Phone</label>
+                <input type="tel" id="modal-contact-phone" required placeholder="Attendant or Hospital phone"
+                       class="w-full p-2.5 bg-slate-50 border border-slate-300 rounded-lg text-sm">
+            </div>
+
+            <div>
+                <label class="block text-xs font-bold uppercase text-slate-700 mb-1">Additional Notes</label>
+                <textarea id="modal-notes" rows="2" placeholder="Ward number, doctor in charge, etc."
+                          class="w-full p-2.5 bg-slate-50 border border-slate-300 rounded-lg text-sm"></textarea>
+            </div>
+
+            <div class="pt-2 flex items-center justify-end gap-2 border-t border-slate-100">
+                <button type="button" onclick="closeRequestHelpModal()" class="px-4 py-2 text-xs font-bold text-slate-600 hover:bg-slate-100 rounded-lg transition">Cancel</button>
+                <button type="submit" class="px-5 py-2 text-xs font-extrabold text-white bg-red-600 hover:bg-red-700 rounded-lg shadow-md transition">Dispatch Request</button>
+            </div>
+        </form>
+    </div>
+</div>
+{% endblock %}
+
+{% block scripts %}
+<script>
+document.addEventListener('DOMContentLoaded', () => {
+    document.getElementById('donor-filter-location').addEventListener('input', () => {
+        document.getElementById('donor-filter-lat').value = '';
+        document.getElementById('donor-filter-lng').value = '';
+    });
+    performDonorSearch();
+});
+
+function useCurrentDonorLocation() {
+    getUserCoordinates((coords) => {
+        document.getElementById('donor-filter-lat').value = coords.lat;
+        document.getElementById('donor-filter-lng').value = coords.lng;
+        document.getElementById('donor-filter-location').value = `GPS (${coords.lat.toFixed(2)}, ${coords.lng.toFixed(2)})`;
+        showToast("Donor location set via GPS", "success");
+        performDonorSearch();
+    });
+}
+
+async function performDonorSearch() {
+    const group = document.getElementById('donor-filter-group').value;
+    const component = document.getElementById('donor-filter-component').value;
+    const location = document.getElementById('donor-filter-location').value;
+    const lat = document.getElementById('donor-filter-lat').value;
+    const lng = document.getElementById('donor-filter-lng').value;
+    const radius = document.getElementById('donor-filter-radius').value;
+
+    let url = `/api/donors/search?blood_group=${encodeURIComponent(group)}&component=${encodeURIComponent(component)}&location=${encodeURIComponent(location)}&radius=${radius}`;
+    if (lat && lng) {
+        url += `&lat=${encodeURIComponent(lat)}&lng=${encodeURIComponent(lng)}`;
+    }
+
+    try {
+        const res = await fetch(url);
+        const data = await res.json();
+        renderDonors(data);
+    } catch (err) {
+        console.error("Donor search error:", err);
+        showToast("Error searching registered donors.", "error");
+    }
+}
+
+function renderDonors(data) {
+    const container = document.getElementById('donors-container');
+    const countText = document.getElementById('donors-count-text');
+
+    countText.innerHTML = `Found <strong>${data.total_results}</strong> compatible donor(s) within search radius (Matching groups: ${data.compatible_groups_searched.join(', ')})`;
+    container.innerHTML = '';
+
+    if (data.results.length === 0) {
+        container.innerHTML = `
+            <div class="col-span-full bg-white p-8 rounded-2xl border border-slate-200 text-center space-y-3">
+                <span class="text-4xl">👥</span>
+                <h4 class="font-bold text-slate-800">No Matching Donors Currently Found Within Radius</h4>
+                <p class="text-xs text-slate-500 max-w-sm mx-auto">Try expanding the radius or create an Emergency Broadcast Request so newly available donors are notified immediately.</p>
+                <div class="pt-2">
+                    <a href="/emergency-request" class="px-4 py-2 bg-red-600 text-white rounded-xl text-xs font-bold hover:bg-red-700">Broadcast Emergency Request &rarr;</a>
+                </div>
+            </div>
+        `;
+        return;
+    }
+
+    data.results.forEach(d => {
+        const card = document.createElement('div');
+        card.className = "bg-white rounded-2xl border border-slate-200 p-5 shadow-sm hover:shadow-md transition space-y-4";
+
+        card.innerHTML = `
+            <div class="flex items-start justify-between gap-3">
+                <div class="flex items-center gap-3">
+                    <div class="w-12 h-12 rounded-xl bg-red-50 border border-red-200 text-red-600 font-extrabold text-xl flex items-center justify-center">
+                        ${d.blood_group}
+                    </div>
+                    <div>
+                        <h3 class="font-bold text-base text-slate-900">${d.display_name}</h3>
+                        <p class="text-xs text-slate-500">📍 ${d.general_area}</p>
+                    </div>
+                </div>
+                <span class="px-2.5 py-1 text-[11px] font-bold rounded-full border ${d.is_available ? 'bg-emerald-50 text-emerald-700 border-emerald-300' : 'bg-slate-100 text-slate-600 border-slate-200'}">
+                    ${d.is_available ? 'AVAILABLE' : 'UNAVAILABLE'}
+                </span>
+            </div>
+
+            <div class="grid grid-cols-2 gap-2 text-[11px] bg-slate-50 p-2.5 rounded-xl border border-slate-100 text-slate-600">
+                <div>📏 Distance: <strong>${d.distance_km.toFixed(1)} km</strong></div>
+                <div>🎖️ Donations: <strong>${d.total_donations || 0} times</strong></div>
+                <div>🛡️ Status: <strong class="text-emerald-700">${d.verification_status}</strong></div>
+                <div>📞 Channel: <strong>${d.preferred_contact}</strong></div>
+            </div>
+
+            <div class="pt-2 flex items-center justify-between border-t border-slate-100">
+                <span class="text-[10px] text-slate-400">Last donated: ${d.last_donation_date || 'Not recorded'}</span>
+                <button onclick="openRequestHelpModal('${d.donor_profile_id}', '${d.display_name}', '${d.blood_group}')" class="px-3.5 py-1.5 bg-red-600 hover:bg-red-700 text-white font-bold rounded-lg text-xs transition shadow-sm flex items-center gap-1.5">
+                    <span>🚨 REQUEST HELP</span>
+                </button>
+            </div>
+        `;
+
+        container.appendChild(card);
+    });
+}
+
+function openRequestHelpModal(donorId, donorName, donorGroup) {
+    document.getElementById('modal-donor-id').value = donorId;
+    document.getElementById('modal-donor-name').textContent = `${donorName} (${donorGroup})`;
+    document.getElementById('modal-donor-group').value = donorGroup;
+    document.getElementById('request-help-modal').classList.remove('hidden');
+}
+
+function closeRequestHelpModal() {
+    document.getElementById('request-help-modal').classList.add('hidden');
+}
+
+async function submitHelpRequest(e) {
+    e.preventDefault();
+    const donorName = document.getElementById('modal-donor-name').textContent;
+    const group = document.getElementById('modal-donor-group').value;
+    
+    const payload = {
+        patient_name: document.getElementById('modal-patient-name').value,
+        hospital_name: document.getElementById('modal-hospital-name').value,
+        hospital_city: document.getElementById('modal-hospital-city').value,
+        blood_group: group,
+        component: "RBC",
+        units_required: parseInt(document.getElementById('modal-units').value),
+        urgency_level: document.getElementById('modal-urgency').value,
+        contact_phone: document.getElementById('modal-contact-phone').value,
+        notes: document.getElementById('modal-notes').value
+    };
+
+    try {
+        const res = await fetch('/api/emergency/create', {
+            method: 'POST',
+            headers: { 'Content-Type': 'application/json' },
+            body: JSON.stringify(payload)
+        });
+        
+        if (res.status === 401) {
+            showToast("Please log in or register to dispatch an emergency help request.", "warning");
+            setTimeout(() => window.location.href = '/login', 1500);
+            return;
+        }
+
+        const data = await res.json();
+        closeRequestHelpModal();
+        showToast(`Help request successfully dispatched to matching donors!`, "success");
+    } catch (err) {
+        showToast("Failed to dispatch request: " + err.message, "error");
+    }
+}
+</script>
+{% endblock %}

@@ -1,0 +1,216 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0">
+    <title>{% block title %}BloodConnect– Emergency Blood & Donor Finder{% endblock %}</title>
+    <!-- Tailwind CSS CDN -->
+    <script src="https://cdn.tailwindcss.com"></script>
+    <script>
+        tailwind.config = {
+            theme: {
+                extend: {
+                    colors: {
+                        emergency: {
+                            50: '#fef2f2',
+                            100: '#fee2e2',
+                            500: '#ef4444',
+                            600: '#dc2626',
+                            700: '#b91c1c',
+                            800: '#991b1b',
+                            900: '#7f1d1d',
+                        }
+                    }
+                }
+            }
+        }
+    </script>
+    <!-- Leaflet Map CSS & JS -->
+    <link rel="stylesheet" href="https://unpkg.com/leaflet@1.9.4/dist/leaflet.css" integrity="sha256-p4NxAoJBhIIN+hmNHrzRCf9tD/miZyoHS5obTRR9BMY=" crossorigin=""/>
+    <script src="https://unpkg.com/leaflet@1.9.4/dist/leaflet.js" integrity="sha256-20nQCchB9co0qIjJZRGuk2/Z9VM+kNiyxNV1lvTlZBo=" crossorigin=""></script>
+    <!-- Custom CSS -->
+    <link rel="stylesheet" href="/static/css/custom.css">
+    {% block head %}{% endblock %}
+</head>
+<body class="bg-slate-50 text-slate-900 min-h-screen flex flex-col antialiased selection:bg-red-500 selection:text-white">
+
+    <!-- Top Emergency Announcement Bar -->
+    <div class="bg-gradient-to-r from-red-700 via-emergency-600 to-red-800 text-white text-xs font-medium py-2 px-4 shadow-sm">
+        <div class="max-w-7xl mx-auto flex flex-wrap items-center justify-between gap-2">
+            <div class="flex items-center gap-2">
+                <span class="inline-block w-2 h-2 rounded-full bg-white animate-ping"></span>
+                <span><strong>CRITICAL PLATFORM:</strong> Zero hardcoded stock. Real-time automated data updates from verified feeds.</span>
+            </div>
+            <div class="flex items-center gap-4 text-red-100 text-[11px]">
+                <span class="flex items-center gap-1.5">
+                    <span id="live-stream-indicator" class="w-2 h-2 rounded-full bg-emerald-400"></span>
+                    <span>Live Ingestion Engine Active</span>
+                </span>
+                <a href="/emergency-request" class="underline font-bold text-white hover:text-amber-200">Post Emergency Request &rarr;</a>
+            </div>
+        </div>
+    </div>
+
+    <!-- Main Navigation Bar -->
+    <header class="bg-white/95 backdrop-blur border-b border-slate-200 sticky top-0 z-40">
+        <div class="max-w-7xl mx-auto px-4 sm:px-6 lg:px-8">
+            <div class="flex items-center justify-between h-16">
+                <!-- Brand / Logo -->
+                <a href="/" class="flex items-center gap-3 group">
+                    <div class="w-10 h-10 rounded-xl bg-gradient-to-tr from-red-600 to-rose-500 flex items-center justify-center text-white shadow-md shadow-red-200 group-hover:scale-105 transition-transform">
+                        <svg class="w-6 h-6 fill-current drop-shadow-sm" viewBox="0 0 24 24">
+                            <path d="M12 2.69l5.66 5.66a8 8 0 1 1-11.31 0z"/>
+                        </svg>
+                    </div>
+                    <div>
+                        <span class="font-extrabold text-xl tracking-tight text-slate-900 group-hover:text-red-600 transition-colors">Life<span class="text-red-600">Drop</span></span>
+                        <span class="block text-[10px] tracking-wider uppercase font-bold text-slate-400 -mt-1">Emergency Finder</span>
+                    </div>
+                </a>
+
+                <!-- Navigation Links -->
+                <nav class="hidden md:flex items-center gap-1 lg:gap-2">
+                    <a href="/search-blood" class="px-3 py-2 rounded-lg text-sm font-semibold text-slate-700 hover:text-red-600 hover:bg-red-50 transition">
+                        Find Blood
+                    </a>
+                    <a href="/search-donors" class="px-3 py-2 rounded-lg text-sm font-semibold text-slate-700 hover:text-red-600 hover:bg-red-50 transition">
+                        Find Donors
+                    </a>
+                    <a href="/map" class="px-3 py-2 rounded-lg text-sm font-semibold text-slate-700 hover:text-red-600 hover:bg-red-50 transition">
+                        Live Map
+                    </a>
+                    <a href="/emergency-request" class="px-3 py-2 rounded-lg text-sm font-bold text-red-600 bg-red-50 hover:bg-red-100 transition flex items-center gap-1.5 border border-red-200">
+                        <span class="w-2 h-2 rounded-full bg-red-600 animate-pulse"></span>
+                        Emergency Request
+                    </a>
+                </nav>
+
+                <!-- User Controls / Auth Status -->
+                <div class="flex items-center gap-3">
+                    {% if current_user %}
+                        <div class="relative group">
+                            <button class="flex items-center gap-2.5 px-3 py-1.5 rounded-full border border-slate-200 hover:border-slate-300 bg-white text-sm font-medium text-slate-800 transition">
+                                <div class="w-7 h-7 rounded-full bg-red-100 text-red-700 font-bold flex items-center justify-center text-xs">
+                                    {{ current_user.full_name[0] }}
+                                </div>
+                                <span class="hidden sm:inline text-xs font-semibold">{{ current_user.full_name }}</span>
+                                <span class="text-[10px] px-2 py-0.5 rounded-full font-bold uppercase 
+                                    {% if current_user.role == 'ADMIN' %}bg-purple-100 text-purple-700
+                                    {% elif current_user.role == 'BLOOD_BANK_STAFF' %}bg-blue-100 text-blue-700
+                                    {% elif current_user.role == 'DONOR' %}bg-emerald-100 text-emerald-700
+                                    {% else %}bg-slate-100 text-slate-700{% endif %}">
+                                    {{ current_user.role.replace('_', ' ') }}
+                                </span>
+                            </button>
+                            <div class="absolute right-0 mt-2 w-48 bg-white rounded-xl shadow-xl border border-slate-100 py-2 hidden group-hover:block transition-all z-50">
+                                {% if current_user.role == 'ADMIN' %}
+                                    <a href="/dashboard/admin" class="block px-4 py-2 text-xs font-semibold text-slate-700 hover:bg-slate-50">Admin Control Panel</a>
+                                {% elif current_user.role == 'BLOOD_BANK_STAFF' %}
+                                    <a href="/dashboard/blood-bank" class="block px-4 py-2 text-xs font-semibold text-slate-700 hover:bg-slate-50">Blood Bank Dashboard</a>
+                                {% elif current_user.role == 'DONOR' %}
+                                    <a href="/dashboard/donor" class="block px-4 py-2 text-xs font-semibold text-slate-700 hover:bg-slate-50">Donor Dashboard</a>
+                                {% else %}
+                                    <a href="/dashboard/user" class="block px-4 py-2 text-xs font-semibold text-slate-700 hover:bg-slate-50">Patient Dashboard</a>
+                                {% endif %}
+                                <a href="/profile" class="block px-4 py-2 text-xs font-semibold text-slate-700 hover:bg-slate-50">Account Profile</a>
+                                <hr class="my-1 border-slate-100">
+                                <button onclick="handleLogout()" class="w-full text-left px-4 py-2 text-xs font-semibold text-red-600 hover:bg-red-50">
+                                    Logout
+                                </button>
+                            </div>
+                        </div>
+                    {% else %}
+                        <a href="/login" class="px-3.5 py-2 text-sm font-semibold text-slate-700 hover:text-slate-900 transition">
+                            Login
+                        </a>
+                        <a href="/register" class="px-4 py-2 text-sm font-bold bg-slate-900 hover:bg-slate-800 text-white rounded-xl shadow-sm transition">
+                            Register
+                        </a>
+                    {% endif %}
+                </div>
+            </div>
+        </div>
+    </header>
+
+    <!-- Global Toast Container -->
+    <div id="toast-container" class="fixed top-20 right-6 z-50 flex flex-col gap-2 max-w-sm pointer-events-auto"></div>
+
+    <!-- Main Content Block -->
+    <main class="flex-grow">
+        {% block content %}{% endblock %}
+    </main>
+
+    <!-- Simulation Modal Included Globally -->
+    {% include "components/simulation_modal.html" %}
+
+    <!-- Footer -->
+    <footer class="bg-slate-900 text-slate-400 text-xs border-t border-slate-800 mt-16 pt-12 pb-8">
+        <div class="max-w-7xl mx-auto px-4 sm:px-6 lg:px-8 space-y-8">
+            <div class="grid grid-cols-1 md:grid-cols-4 gap-8">
+                <!-- Brand and Info -->
+                <div class="md:col-span-2 space-y-3">
+                    <div class="flex items-center gap-2">
+                        <div class="w-8 h-8 rounded-lg bg-red-600 flex items-center justify-center text-white font-bold">
+                            🩸
+                        </div>
+                        <span class="font-extrabold text-lg text-white">LifeDrop</span>
+                    </div>
+                    <p class="text-xs text-slate-400 leading-relaxed max-w-md">
+                        Emergency blood coordination infrastructure engineered with automatic inventory ingestion. Eliminating search delays and connecting verified facilities with volunteer donors when every second counts.
+                    </p>
+                    <div class="flex items-center gap-4 pt-2">
+                        <span class="inline-flex items-center gap-1.5 text-[11px] text-emerald-400 bg-emerald-950/60 border border-emerald-800/60 px-2.5 py-1 rounded-full font-mono">
+                            <span class="w-1.5 h-1.5 rounded-full bg-emerald-400"></span> Event-Driven Architecture
+                        </span>
+                        <span class="inline-flex items-center gap-1.5 text-[11px] text-blue-400 bg-blue-950/60 border border-blue-800/60 px-2.5 py-1 rounded-full font-mono">
+                            Zero Hardcoded Inventory
+                        </span>
+                    </div>
+                </div>
+
+                <!-- Fast Links -->
+                <div>
+                    <h4 class="font-bold text-white text-xs uppercase tracking-wider mb-3">Emergency Quick Links</h4>
+                    <ul class="space-y-2">
+                        <li><a href="/search-blood" class="hover:text-white transition">Find Blood by Group & Distance</a></li>
+                        <li><a href="/search-donors" class="hover:text-white transition">Search Compatible Donors</a></li>
+                        <li><a href="/emergency-request" class="hover:text-white transition">Create Emergency Request</a></li>
+                        <li><a href="/map" class="hover:text-white transition">Interactive Blood Bank Map</a></li>
+                    </ul>
+                </div>
+
+                <!-- Legal & Disclaimers -->
+                <div>
+                    <h4 class="font-bold text-white text-xs uppercase tracking-wider mb-3">System Compliance</h4>
+                    <ul class="space-y-2">
+                        <li><span class="text-slate-300">Donor Privacy Protection</span></li>
+                        <li><span class="text-slate-300">Automated Data Ingestion Standard</span></li>
+                        <li><span class="text-slate-300">Outdated Stock Recency Checks</span></li>
+                        <li><span class="text-slate-300">ABO & Rh Scientific Compatibility</span></li>
+                    </ul>
+                </div>
+            </div>
+
+            <!-- Full Legal & Medical Disclaimer Box -->
+            <div class="p-4 rounded-xl bg-slate-800/70 border border-slate-700/80 text-[11px] text-slate-300 space-y-2 leading-relaxed">
+                <p>
+                    <strong>Medical Disclaimer & Regulatory Notice:</strong> LifeDrop is an information routing and volunteer coordination platform. It is not an authorized blood establishment, does not collect or process human blood directly, and cannot guarantee blood availability, donor response, or immediate transfusion.
+                </p>
+                <p>
+                    <em>"Eligibility must be confirmed according to applicable blood-donation guidelines."</em> Medical eligibility, hemoglobin assessment, mandatory testing for transmissible infections, and collection safety remain the sole responsibility of licensed blood transfusion centers.
+                </p>
+            </div>
+
+            <div class="flex flex-col sm:flex-row items-center justify-between text-[11px] text-slate-500 pt-4 border-t border-slate-800">
+                <p>&copy; 2026 LifeDrop – Blood Bank Finder. Developed for emergency life-saving coordination.</p>
+                <p>FastAPI Asynchronous Engine &bull; Server-Sent Events Live Bus</p>
+            </div>
+        </div>
+    </footer>
+
+    <!-- Core Scripts -->
+    <script src="/static/js/app.js"></script>
+    <script src="/static/js/live_stream.js"></script>
+    {% block scripts %}{% endblock %}
+</body>
+</html>

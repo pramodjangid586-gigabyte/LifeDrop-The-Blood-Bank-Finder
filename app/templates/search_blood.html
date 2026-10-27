@@ -1,0 +1,341 @@
+{% extends "base.html" %}
+
+{% block title %}Find Blood – Nearby Blood Banks & Real-Time Stock | BloodConnect{% endblock %}
+
+{% block content %}
+<div class="max-w-7xl mx-auto px-4 sm:px-6 lg:px-8 py-8 space-y-6">
+
+    <!-- Page Header & Filter Form -->
+    <div class="bg-white rounded-2xl p-6 border border-slate-200 shadow-sm">
+        <div class="flex flex-wrap items-center justify-between gap-4 mb-6 pb-4 border-b border-slate-100">
+            <div>
+                <h1 class="text-2xl font-extrabold text-slate-900 tracking-tight flex items-center gap-2">
+                    <span>🩸</span> Nearby Blood Banks & Stock Availability
+                </h1>
+                <p class="text-xs text-slate-500 mt-1">
+                    Sorted by road distance. Real-time availability ingested from authorized feeds.
+                </p>
+            </div>
+            <!-- Live SSE Indicator & Sync Button -->
+            <div class="flex items-center gap-2">
+                <button type="button" onclick="syncLiveFeeds()" title="Synchronize all hospital feeds with latest real-time stock" class="flex items-center gap-1.5 px-3 py-1.5 rounded-full bg-emerald-50 hover:bg-emerald-100 text-emerald-800 text-xs font-bold border border-emerald-300 transition shadow-2xs">
+                    <span>⚡ Sync Real-Time Feeds</span>
+                </button>
+                <div class="flex items-center gap-2 px-3 py-1.5 rounded-full bg-slate-100 text-slate-700 text-xs font-mono font-semibold">
+                    <span class="w-2 h-2 rounded-full bg-emerald-500 animate-pulse"></span>
+                    <span>Live Feed Active</span>
+                </div>
+            </div>
+        </div>
+
+        <form id="search-form" class="grid grid-cols-1 sm:grid-cols-2 lg:grid-cols-5 gap-4">
+            <!-- Blood Group -->
+            <div>
+                <label class="block text-xs font-bold uppercase text-slate-700 mb-1">Blood Group</label>
+                <select id="filter-group" name="blood_group" class="w-full p-2.5 bg-slate-50 border border-slate-300 rounded-xl text-sm font-bold text-slate-900 focus:ring-2 focus:ring-red-500">
+                    <option value="O+" {% if query_group == 'O+' %}selected{% endif %}>O+</option>
+                    <option value="O-" {% if query_group == 'O-' %}selected{% endif %}>O-</option>
+                    <option value="A+" {% if query_group == 'A+' %}selected{% endif %}>A+</option>
+                    <option value="A-" {% if query_group == 'A-' %}selected{% endif %}>A-</option>
+                    <option value="B+" {% if query_group == 'B+' %}selected{% endif %}>B+</option>
+                    <option value="B-" {% if query_group == 'B-' %}selected{% endif %}>B-</option>
+                    <option value="AB+" {% if query_group == 'AB+' %}selected{% endif %}>AB+</option>
+                    <option value="AB-" {% if query_group == 'AB-' %}selected{% endif %}>AB-</option>
+                </select>
+            </div>
+
+            <!-- Component -->
+            <div>
+                <label class="block text-xs font-bold uppercase text-slate-700 mb-1">Component</label>
+                <select id="filter-component" name="component" class="w-full p-2.5 bg-slate-50 border border-slate-300 rounded-xl text-sm font-semibold text-slate-900 focus:ring-2 focus:ring-red-500">
+                    <option value="RBC" {% if query_component == 'RBC' %}selected{% endif %}>RBC (Packed Red Cells)</option>
+                    <option value="WHOLE_BLOOD" {% if query_component == 'WHOLE_BLOOD' %}selected{% endif %}>Whole Blood</option>
+                    <option value="PLATELETS" {% if query_component == 'PLATELETS' %}selected{% endif %}>Platelets (RDP/SDP)</option>
+                    <option value="PLASMA" {% if query_component == 'PLASMA' %}selected{% endif %}>Fresh Frozen Plasma</option>
+                    <option value="CRYO" {% if query_component == 'CRYO' %}selected{% endif %}>Cryoprecipitate</option>
+                </select>
+            </div>
+
+            <!-- Location -->
+            <div>
+                <div class="flex items-center justify-between mb-1">
+                    <label class="block text-xs font-bold uppercase text-slate-700">Location</label>
+                    <button type="button" onclick="useCurrentLocation()" class="text-[10px] font-bold text-red-600 hover:text-red-700">🎯 My GPS</button>
+                </div>
+                <input type="text" id="filter-location" name="location" placeholder="City or Area (e.g. Pune, Delhi, Kothrud)" value="{{ location or 'Delhi' }}"
+                       class="w-full p-2.5 bg-slate-50 border border-slate-300 rounded-xl text-sm font-medium text-slate-900 focus:ring-2 focus:ring-red-500">
+                <input type="hidden" id="filter-lat" name="lat" value="{{ lat or '' }}">
+                <input type="hidden" id="filter-lng" name="lng" value="{{ lng or '' }}">
+            </div>
+
+            <!-- Radius -->
+            <div>
+                <label class="block text-xs font-bold uppercase text-slate-700 mb-1">Radius (Distance)</label>
+                <select id="filter-radius" name="radius" class="w-full p-2.5 bg-slate-50 border border-slate-300 rounded-xl text-sm font-semibold text-slate-900 focus:ring-2 focus:ring-red-500">
+                    <option value="10">Within 10 km</option>
+                    <option value="20">Within 20 km</option>
+                    <option value="35" selected>Within 35 km</option>
+                    <option value="50">Within 50 km</option>
+                    <option value="100">Within 100 km</option>
+                </select>
+            </div>
+
+            <!-- Submit Filter -->
+            <div class="flex flex-col justify-end">
+                <button type="button" onclick="performSearch()" class="w-full p-2.5 bg-red-600 hover:bg-red-700 text-white font-bold rounded-xl shadow-md transition flex items-center justify-center gap-2 text-sm">
+                    <svg class="w-4 h-4 fill-current" viewBox="0 0 24 24"><path d="M15.5 14h-.79l-.28-.27A6.471 6.471 0 0 0 16 9.5 6.5 6.5 0 1 0 9.5 16c1.61 0 3.09-.59 4.23-1.57l.27.28v.79l5 4.99L20.49 19l-4.99-5zm-6 0C7.01 14 5 11.99 5 9.5S7.01 5 9.5 5 14 7.01 14 9.5 11.99 14 9.5 14z"/></svg>
+                    <span>Update Search</span>
+                </button>
+            </div>
+        </form>
+    </div>
+
+    <!-- Map & Results Split Layout -->
+    <div class="grid grid-cols-1 lg:grid-cols-12 gap-6">
+        <!-- Interactive Map Column -->
+        <div class="lg:col-span-5 space-y-3">
+            <div class="bg-white p-3 rounded-2xl border border-slate-200 shadow-sm">
+                <div class="flex items-center justify-between pb-2 mb-2 border-b border-slate-100 text-xs font-bold text-slate-700">
+                    <span>🗺️ Geographic Radius View</span>
+                    <span class="text-slate-400 font-normal">OpenStreetMap Engine</span>
+                </div>
+                <div id="search-map" class="w-full h-80 rounded-xl z-10"></div>
+                <div class="mt-3 flex flex-wrap items-center gap-3 text-[11px] text-slate-500">
+                    <span class="flex items-center gap-1"><span class="w-2.5 h-2.5 rounded-full bg-emerald-500"></span> Available (&ge;5)</span>
+                    <span class="flex items-center gap-1"><span class="w-2.5 h-2.5 rounded-full bg-amber-400"></span> Limited (1-4)</span>
+                    <span class="flex items-center gap-1"><span class="w-2.5 h-2.5 rounded-full bg-red-500"></span> Out of Stock</span>
+                    <span class="flex items-center gap-1"><span class="w-2.5 h-2.5 rounded-full bg-orange-500"></span> Outdated</span>
+                </div>
+            </div>
+        </div>
+
+        <!-- Results List Column -->
+        <div class="lg:col-span-7 space-y-4">
+            <div class="flex items-center justify-between text-xs text-slate-500 px-1">
+                <span id="results-count-text">Searching nearby blood banks...</span>
+                <span class="font-mono text-[11px] text-emerald-600 font-semibold">Live Updating</span>
+            </div>
+
+            <!-- Outdated Warning Banner Template -->
+            <div id="outdated-warning-box" class="hidden bg-orange-50 border border-orange-300 rounded-xl p-4 text-xs text-orange-900 flex items-start gap-3">
+                <span class="text-lg">⚠️</span>
+                <div>
+                    <h5 class="font-bold text-orange-950">Outdated Availability Notice</h5>
+                    <p class="leading-relaxed">
+                        One or more facilities have stock updates older than 24 hours. <em>"Availability information may be outdated. Please contact the blood bank before travelling."</em>
+                    </p>
+                </div>
+            </div>
+
+            <!-- Blood Bank Cards Container -->
+            <div id="results-container" class="space-y-3">
+                <!-- Dynamically populated via performSearch() -->
+            </div>
+        </div>
+    </div>
+
+    <!-- Mandatory Platform Safety Component -->
+    {% include "components/disclaimers.html" %}
+
+</div>
+{% endblock %}
+
+{% block scripts %}
+<script src="/static/js/map.js"></script>
+<script>
+let currentSearchResults = [];
+
+document.addEventListener('DOMContentLoaded', () => {
+    // Initial map center: default Delhi unless location or lat/lng suggests otherwise
+    const locVal = (document.getElementById('filter-location').value || '').toLowerCase();
+    const initialLat = locVal.includes('pune') ? 18.5204 : 28.6139;
+    const initialLng = locVal.includes('pune') ? 73.8567 : 77.2090;
+    
+    initBloodMap('search-map', initialLat, initialLng, 11);
+    
+    // Clear lat/lng when user types a new location so backend resolves the typed name
+    document.getElementById('filter-location').addEventListener('input', () => {
+        document.getElementById('filter-lat').value = '';
+        document.getElementById('filter-lng').value = '';
+    });
+
+    performSearch();
+});
+
+function useCurrentLocation() {
+    getUserCoordinates((coords) => {
+        document.getElementById('filter-lat').value = coords.lat;
+        document.getElementById('filter-lng').value = coords.lng;
+        document.getElementById('filter-location').value = `GPS (${coords.lat.toFixed(2)}, ${coords.lng.toFixed(2)})`;
+        showToast("Location updated via GPS", "success");
+        performSearch();
+    });
+}
+
+async function performSearch() {
+    const group = document.getElementById('filter-group').value;
+    const component = document.getElementById('filter-component').value;
+    const location = document.getElementById('filter-location').value;
+    const lat = document.getElementById('filter-lat').value;
+    const lng = document.getElementById('filter-lng').value;
+    const radius = document.getElementById('filter-radius').value;
+
+    let url = `/api/blood-banks/search?blood_group=${encodeURIComponent(group)}&component=${encodeURIComponent(component)}&location=${encodeURIComponent(location)}&radius=${radius}`;
+    if (lat && lng) {
+        url += `&lat=${encodeURIComponent(lat)}&lng=${encodeURIComponent(lng)}`;
+    }
+
+    try {
+        const res = await fetch(url);
+        const data = await res.json();
+        currentSearchResults = data.results || [];
+        if (data.search_center && data.search_center.lat && data.search_center.lng) {
+            document.getElementById('filter-lat').value = data.search_center.lat;
+            document.getElementById('filter-lng').value = data.search_center.lng;
+        }
+        renderSearchResults(data);
+    } catch (err) {
+        console.error("Search error:", err);
+        showToast("Error retrieving blood bank results.", "error");
+    }
+}
+
+function renderSearchResults(data) {
+    const container = document.getElementById('results-container');
+    const countText = document.getElementById('results-count-text');
+    const warningBox = document.getElementById('outdated-warning-box');
+
+    countText.textContent = `Found ${data.total_results} blood bank(s) within ${data.radius_km} km for ${data.query_group} (${data.query_component})`;
+
+    let hasOutdated = false;
+    container.innerHTML = '';
+
+    if (data.results.length === 0) {
+        container.innerHTML = `
+            <div class="bg-white p-8 rounded-2xl border border-slate-200 text-center space-y-3">
+                <span class="text-4xl">🔍</span>
+                <h4 class="font-bold text-slate-800">No Blood Banks Found Within Search Radius</h4>
+                <p class="text-xs text-slate-500 max-w-sm mx-auto">Try expanding your search radius to 50 km or searching for compatible donors directly.</p>
+                <div class="pt-2">
+                    <a href="/search-donors?blood_group=${encodeURIComponent(data.query_group)}" class="px-4 py-2 bg-red-600 text-white rounded-xl text-xs font-bold hover:bg-red-700">Find Compatible Donors &rarr;</a>
+                </div>
+            </div>
+        `;
+        warningBox.classList.add('hidden');
+        plotBloodBanksOnMap([], data.search_center, data.radius_km);
+        return;
+    }
+
+    data.results.forEach(bank => {
+        if (bank.is_outdated) hasOutdated = true;
+
+        const rowId = `stock-row-${bank.id}-${bank.blood_group}-${bank.component}`;
+        const card = document.createElement('div');
+        card.id = rowId;
+        card.className = "bg-white rounded-2xl border border-slate-200 p-5 shadow-sm hover:shadow-md transition duration-200 space-y-3";
+
+        card.innerHTML = `
+            <div class="flex items-start justify-between gap-3">
+                <div>
+                    <div class="flex items-center gap-2 mb-1">
+                        <span class="text-xs font-extrabold uppercase px-2 py-0.5 rounded-full ${bank.verification_status === 'VERIFIED' ? 'bg-emerald-100 text-emerald-800' : 'bg-purple-100 text-purple-800'}">
+                            ${bank.verification_status}
+                        </span>
+                        <span class="text-xs text-slate-400">&bull; Lic: ${bank.license_number}</span>
+                    </div>
+                    <h3 class="font-bold text-base text-slate-900">${bank.name}</h3>
+                    <p class="text-xs text-slate-500 mt-0.5">📍 ${bank.address}, ${bank.city}</p>
+                </div>
+                <div class="text-right flex flex-col items-end">
+                    <div class="px-2.5 py-1 text-xs font-semibold rounded-full border stock-status ${bank.badge_class}">
+                        ${bank.availability_status}
+                    </div>
+                    <span class="text-xs font-bold text-slate-700 mt-1">📏 ${bank.distance_km.toFixed(1)} km away</span>
+                </div>
+            </div>
+
+            <!-- Stock Count & Outdated Notice -->
+            <div class="bg-slate-50 rounded-xl p-3 flex flex-wrap items-center justify-between gap-3 border border-slate-100">
+                <div class="flex items-center gap-3">
+                    <div class="text-center px-3 py-1 bg-white rounded-lg border border-slate-200 shadow-2xs">
+                        <span class="block text-[10px] uppercase font-bold text-slate-400">Available</span>
+                        <span class="text-xl font-black text-red-600 stock-units">${bank.units_available}</span>
+                        <span class="block text-[9px] font-bold text-slate-500">Units</span>
+                    </div>
+                    <div>
+                        <span class="text-xs font-bold text-slate-800 block">${bank.blood_group} (${bank.component})</span>
+                        <span class="text-[11px] text-slate-500 block">
+                            Data Source: <strong class="stock-source text-slate-700">${bank.data_source}</strong>
+                        </span>
+                        <span class="text-[10px] text-slate-500 flex items-center gap-1.5 mt-0.5">
+                            <span class="w-1.5 h-1.5 rounded-full ${bank.is_outdated ? 'bg-amber-500' : 'bg-emerald-500 animate-pulse'}"></span>
+                            <span>Live Feed:</span>
+                            <strong class="stock-time ${bank.is_outdated ? 'text-amber-700' : 'text-emerald-700'}">${bank.is_outdated ? bank.last_updated_at + ' (Outdated)' : formatRelativeTime(bank.last_updated_at)}</strong>
+                        </span>
+                    </div>
+                </div>
+
+                <div class="flex items-center gap-2">
+                    <a href="tel:${bank.phone}" class="px-3 py-1.5 bg-slate-100 hover:bg-slate-200 text-slate-800 font-bold rounded-lg text-xs transition flex items-center gap-1">
+                        📞 Call
+                    </a>
+                    <a href="https://www.google.com/maps/dir/?api=1&destination=${bank.lat},${bank.lng}" target="_blank" class="px-3 py-1.5 bg-red-600 hover:bg-red-700 text-white font-bold rounded-lg text-xs transition flex items-center gap-1 shadow-sm">
+                        🧭 Directions
+                    </a>
+                </div>
+            </div>
+
+            ${bank.is_outdated ? `
+                <div class="p-2.5 rounded-lg bg-amber-50 border border-amber-200 text-[11px] text-amber-800 flex items-start gap-2 font-medium">
+                    <span>⚠️</span>
+                    <span><strong>Outdated Stock:</strong> ${bank.outdated_warning}</span>
+                </div>
+            ` : ''}
+        `;
+
+        container.appendChild(card);
+    });
+
+    if (hasOutdated) {
+        warningBox.classList.remove('hidden');
+    } else {
+        warningBox.classList.add('hidden');
+    }
+
+    // Update map markers
+    plotBloodBanksOnMap(data.results, data.search_center, data.radius_km);
+}
+
+function formatRelativeTime(dateStr) {
+    if (!dateStr) return "Just now";
+    try {
+        const parts = dateStr.split(/[- :]/);
+        if (parts.length >= 6) {
+            const date = new Date(Date.UTC(parts[0], parts[1]-1, parts[2], parts[3], parts[4], parts[5]));
+            const now = new Date();
+            const diffSeconds = Math.max(0, Math.floor((now - date) / 1000));
+            if (diffSeconds < 60) return "Just now";
+            const diffMinutes = Math.floor(diffSeconds / 60);
+            if (diffMinutes < 60) return `${diffMinutes} min${diffMinutes > 1 ? 's' : ''} ago`;
+            const diffHours = Math.floor(diffMinutes / 60);
+            if (diffHours < 24) return `${diffHours} hr${diffHours > 1 ? 's' : ''} ago`;
+        }
+        return dateStr;
+    } catch(e) {
+        return dateStr;
+    }
+}
+
+async function syncLiveFeeds() {
+    try {
+        if (typeof showToast === 'function') showToast("Synchronizing hospital blood feeds to live real-time status...", "info");
+        const res = await fetch('/api/ingestion/refresh-all-feeds', { method: 'POST' });
+        const data = await res.json();
+        if (typeof showToast === 'function') showToast("All blood bank inventory feeds synchronized to active real-time status!", "success");
+        performSearch();
+    } catch (e) {
+        if (typeof showToast === 'function') showToast("Error synchronizing live feeds.", "error");
+    }
+}
+</script>
+{% endblock %}

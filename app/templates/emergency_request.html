@@ -1,0 +1,178 @@
+{% extends "base.html" %}
+
+{% block title %}Post Emergency Blood Request | LifeDrop{% endblock %}
+
+{% block content %}
+<div class="max-w-3xl mx-auto px-4 sm:px-6 lg:px-8 py-10">
+
+    <div class="bg-white rounded-2xl border border-slate-200 shadow-xl overflow-hidden">
+        <!-- Header Banner -->
+        <div class="bg-gradient-to-r from-red-700 to-rose-600 p-6 text-white">
+            <div class="flex items-center gap-2 mb-2 text-xs font-extrabold uppercase tracking-wider text-red-200">
+                <span class="w-2.5 h-2.5 rounded-full bg-white animate-ping"></span>
+                Urgent Patient Dispatch System
+            </div>
+            <h1 class="text-2xl sm:text-3xl font-extrabold tracking-tight">Create Emergency Blood Request</h1>
+            <p class="text-xs sm:text-sm text-red-100 mt-1">
+                Your emergency request is immediately matched and broadcasted to compatible, available donors within 30 km.
+            </p>
+        </div>
+
+        <!-- Form -->
+        <form id="emergency-request-form" onsubmit="handleEmergencySubmit(event)" class="p-6 sm:p-8 space-y-6">
+            
+            <div class="grid grid-cols-1 sm:grid-cols-2 gap-4">
+                <!-- Patient Name -->
+                <div>
+                    <label class="block text-xs font-bold uppercase text-slate-700 mb-1.5">Patient Full Name *</label>
+                    <input type="text" id="req-patient-name" required placeholder="Patient legal name"
+                           class="w-full p-3 bg-slate-50 border border-slate-300 rounded-xl text-sm font-medium focus:ring-2 focus:ring-red-500">
+                </div>
+
+                <!-- Contact Phone -->
+                <div>
+                    <label class="block text-xs font-bold uppercase text-slate-700 mb-1.5">Attendant / Doctor Phone *</label>
+                    <input type="tel" id="req-contact-phone" required placeholder="Mobile number for donor to call"
+                           class="w-full p-3 bg-slate-50 border border-slate-300 rounded-xl text-sm font-medium focus:ring-2 focus:ring-red-500">
+                </div>
+            </div>
+
+            <div class="grid grid-cols-1 sm:grid-cols-3 gap-4">
+                <!-- Blood Group -->
+                <div>
+                    <label class="block text-xs font-bold uppercase text-slate-700 mb-1.5">Blood Group Required *</label>
+                    <select id="req-blood-group" required class="w-full p-3 bg-slate-50 border border-slate-300 rounded-xl text-sm font-extrabold text-red-600 focus:ring-2 focus:ring-red-500">
+                        <option value="O+">O+</option>
+                        <option value="O-">O-</option>
+                        <option value="A+">A+</option>
+                        <option value="A-">A-</option>
+                        <option value="B+">B+</option>
+                        <option value="B-">B-</option>
+                        <option value="AB+">AB+</option>
+                        <option value="AB-">AB-</option>
+                    </select>
+                </div>
+
+                <!-- Component -->
+                <div>
+                    <label class="block text-xs font-bold uppercase text-slate-700 mb-1.5">Blood Component *</label>
+                    <select id="req-component" required class="w-full p-3 bg-slate-50 border border-slate-300 rounded-xl text-sm font-semibold focus:ring-2 focus:ring-red-500">
+                        <option value="RBC" selected>RBC (Red Blood Cells)</option>
+                        <option value="WHOLE_BLOOD">Whole Blood</option>
+                        <option value="PLATELETS">Platelets (SDP/RDP)</option>
+                        <option value="PLASMA">Fresh Frozen Plasma</option>
+                        <option value="CRYO">Cryoprecipitate</option>
+                    </select>
+                </div>
+
+                <!-- Units -->
+                <div>
+                    <label class="block text-xs font-bold uppercase text-slate-700 mb-1.5">Units Required *</label>
+                    <input type="number" id="req-units" min="1" max="15" value="2" required
+                           class="w-full p-3 bg-slate-50 border border-slate-300 rounded-xl text-sm font-bold focus:ring-2 focus:ring-red-500">
+                </div>
+            </div>
+
+            <!-- Hospital Information -->
+            <div class="space-y-4 pt-2 border-t border-slate-100">
+                <h3 class="text-xs font-extrabold uppercase tracking-wider text-slate-500">Hospital & Location Details</h3>
+                
+                <div class="grid grid-cols-1 sm:grid-cols-2 gap-4">
+                    <div>
+                        <label class="block text-xs font-bold uppercase text-slate-700 mb-1.5">Hospital Name *</label>
+                        <input type="text" id="req-hospital-name" required placeholder="e.g. AIIMS Trauma Center"
+                               class="w-full p-3 bg-slate-50 border border-slate-300 rounded-xl text-sm font-medium focus:ring-2 focus:ring-red-500">
+                    </div>
+
+                    <div>
+                        <label class="block text-xs font-bold uppercase text-slate-700 mb-1.5">City / Region *</label>
+                        <input type="text" id="req-hospital-city" required placeholder="e.g. New Delhi" value="New Delhi"
+                               class="w-full p-3 bg-slate-50 border border-slate-300 rounded-xl text-sm font-medium focus:ring-2 focus:ring-red-500">
+                    </div>
+                </div>
+
+                <div class="grid grid-cols-1 sm:grid-cols-2 gap-4">
+                    <div>
+                        <label class="block text-xs font-bold uppercase text-slate-700 mb-1.5">Hospital Landmark / Area</label>
+                        <input type="text" id="req-hospital-loc" placeholder="e.g. Ansari Nagar, South Delhi"
+                               class="w-full p-3 bg-slate-50 border border-slate-300 rounded-xl text-sm font-medium focus:ring-2 focus:ring-red-500">
+                    </div>
+
+                    <div>
+                        <label class="block text-xs font-bold uppercase text-slate-700 mb-1.5">Urgency Level *</label>
+                        <select id="req-urgency" required class="w-full p-3 bg-slate-50 border border-slate-300 rounded-xl text-sm font-bold text-red-600 focus:ring-2 focus:ring-red-500">
+                            <option value="CRITICAL_1HR">CRITICAL (Needed within 1 hour - OT/Surgery)</option>
+                            <option value="URGENT_6HR">URGENT (Needed within 6 hours)</option>
+                            <option value="STANDARD_24HR">STANDARD (Needed within 24 hours)</option>
+                        </select>
+                    </div>
+                </div>
+            </div>
+
+            <!-- Notes -->
+            <div>
+                <label class="block text-xs font-bold uppercase text-slate-700 mb-1.5">Non-Sensitive Clinical Notes</label>
+                <textarea id="req-notes" rows="3" placeholder="e.g. ICU Ward 3, Attendant standing outside blood bank. Please bring government photo ID."
+                          class="w-full p-3 bg-slate-50 border border-slate-300 rounded-xl text-sm focus:ring-2 focus:ring-red-500"></textarea>
+                <p class="text-[11px] text-slate-400 mt-1">Do NOT disclose sensitive medical records or financial details.</p>
+            </div>
+
+            <!-- Platform Disclaimer & Confirmation -->
+            <div class="p-4 rounded-xl bg-amber-50 border border-amber-200 text-xs text-amber-800 space-y-1">
+                <div class="font-bold text-amber-950">Coordination Platform Disclaimer:</div>
+                <p>BloodConnect is an emergency discovery and communication channel. <strong>We do NOT guarantee donor attendance, blood availability, or medical eligibility.</strong> Keep searching official blood banks simultaneously.</p>
+            </div>
+
+            <!-- Submit Button -->
+            <button type="submit" class="w-full py-4 bg-red-600 hover:bg-red-700 active:bg-red-800 text-white font-extrabold rounded-xl shadow-lg shadow-red-600/30 transition transform hover:-translate-y-0.5 flex items-center justify-center gap-2 text-base">
+                <span class="w-2.5 h-2.5 rounded-full bg-white animate-ping"></span>
+                <span>BROADCAST EMERGENCY REQUEST</span>
+            </button>
+        </form>
+    </div>
+
+</div>
+
+<script>
+async function handleEmergencySubmit(e) {
+    e.preventDefault();
+    
+    const payload = {
+        patient_name: document.getElementById('req-patient-name').value,
+        hospital_name: document.getElementById('req-hospital-name').value,
+        hospital_city: document.getElementById('req-hospital-city').value,
+        hospital_location: document.getElementById('req-hospital-loc').value,
+        blood_group: document.getElementById('req-blood-group').value,
+        component: document.getElementById('req-component').value,
+        units_required: parseInt(document.getElementById('req-units').value),
+        urgency_level: document.getElementById('req-urgency').value,
+        contact_phone: document.getElementById('req-contact-phone').value,
+        notes: document.getElementById('req-notes').value
+    };
+
+    try {
+        const res = await fetch('/api/emergency/create', {
+            method: 'POST',
+            headers: { 'Content-Type': 'application/json' },
+            body: JSON.stringify(payload)
+        });
+
+        if (res.status === 401) {
+            showToast("Please log in to post and track an emergency request.", "warning");
+            setTimeout(() => window.location.href = '/login', 1500);
+            return;
+        }
+
+        const data = await res.json();
+        if (res.ok) {
+            showToast(data.message, "success");
+            setTimeout(() => window.location.href = '/dashboard/user', 1500);
+        } else {
+            showToast(data.detail || "Submission failed", "error");
+        }
+    } catch (err) {
+        showToast("Error creating emergency request: " + err.message, "error");
+    }
+}
+</script>
+{% endblock %}
